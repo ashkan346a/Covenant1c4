@@ -1,13 +1,22 @@
-FROM ubuntu:22.04
+# استفاده از تصویر پایه سبک
+FROM ubuntu:22.04 AS builder
 
-RUN apt update && apt install -y git build-essential apt-utils cmake libfontconfig1 libfontconfig1-dev libglib2.0-dev libtinfo5 python3 python3-pip golang-go
+# نصب تمام dependencies لازم
+RUN apt update && apt install -y git build-essential cmake golang-go libfontconfig1 libglib2.0-0 libtinfo5 python3 python3-pip
 
+# کلون و بیلد Havoc
 WORKDIR /havoc
-RUN git clone https://github.com/HavocFramework/Havoc.git . && \
-    git submodule update --init --recursive && \
-    cd teamserver && go mod download golang.org/x/sys && go build && cd .. && \
-    make build
+RUN git clone --recursive https://github.com/HavocFramework/Havoc.git .
+RUN cd teamserver && go mod download && go build -o teamserver .
+RUN cd client && make build
 
+# مرحله نهایی (فقط runtime)
+FROM ubuntu:22.04
+COPY --from=builder /havoc /havoc
+WORKDIR /havoc
+
+# پورت teamserver (Railway اتوماتیک به 443 ریدایرکت می‌کنه)
 EXPOSE 40056
 
-CMD ["./havoc", "server", "--profile", "./profiles/havoc.yaotl", "-v"]
+# ران کردن teamserver با پروفایل پیش‌فرض
+CMD ["./teamserver/teamserver", "havoc", "havoc", "-v", "--profile", "./profiles/havoc.yaotl"]
